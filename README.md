@@ -5,7 +5,7 @@ The CAN (Controller Area Network) protocol facilitates vehicle multi-node commun
 For the simulation of a can protocol 
 
 
-##Installation
+#Installation
 
 Installation from pip (release version, stable):
 ```
@@ -22,7 +22,7 @@ $ pip install -e cocotbext-can
 ```
 
 
-##Documentation and usage examples
+#Documentation and usage examples
 
 There are 3 classes present  
 Cannode
@@ -70,7 +70,7 @@ Attribute
 Data: access the data field from a frame 
 nodeerror: number of errors encountered 
 
-##Canframe 
+#Canframe 
 It implements the frame to be transferred from one node to another node 
 The canFrame object is a container for a frame to be transferred via canbus. Here frame can be two types remote and data frame but default frame would be a data frame but the type can be changed by the sending node. 
 Each message frame contains 
@@ -103,7 +103,7 @@ example
 ```    
 from cocotbext.can import CanBus, CanNode, CanFrame
 
-##node is instantiated message-id is provided for the receiving message  
+#node is instantiated message-id is provided for the receiving message  
 node1 = CanNode(CanBus, 0X019 , dut.rst) 
 await node1.append(0X004)
 frame1 = CanFrame(0 , 0X007, 0x03, 0x0130)
