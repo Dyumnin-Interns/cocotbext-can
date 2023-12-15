@@ -1,11 +1,11 @@
 # cocotbext-can
 
-##introduction 
+introduction 
 The CAN (Controller Area Network) protocol facilitates vehicle multi-node communication through dual-wire signaling (CANH, CANL). Messages with unique identifiers are broadcasted on the bus, allowing nodes to interpret and act upon relevant data. This message-based system enables efficient, real-time data exchange crucial for automotive functionalities and control. This document supports can 2.0b.
 For the simulation of a can protocol 
 
 
-#Installation
+Installation
 
 Installation from pip (release version, stable):
 ```
@@ -22,14 +22,14 @@ $ pip install -e cocotbext-can
 ```
 
 
-#Documentation and usage examples
+Documentation and usage examples
 
 There are 3 classes present  
 Cannode
 Canframe
 Canbus 
 
-##Cannode 
+Cannode 
 This class implements a node that can send and receive message frames (data frame and remote frame). Multiple cannode can be instantiated to increase the traffic on the bus. Each cannode can drive and receive a message frame from the bus. The cannode class is a wrapper around cannodeSource and cannodeSink that also provides a baud rate for the transmission. The cannodeSource drives canframe into a design. The cannodeSink receives canframe, including monitoring internal interfaces. When a dominant bit(0) appears on the bus,  the nodes will compare the message ID and receive the frame from the bus. Otherwise, the bus will be in a recessive state (1).
 There is a method check() which can be used for checking errors in a frame if the error is found it will change the error counter value accordingly. It is based on the CRC field which is a part of the frame. The Typeof_frame method is there to modify the frame the type of frame (remote or data ).
 For the arbitration cannode will check the bus also if another node has put a dominant bit, then it will stop the transfer.   
@@ -70,7 +70,7 @@ Attribute
 Data: access the data field from a frame 
 nodeerror: number of errors encountered 
 
-#Canframe 
+Canframe 
 It implements the frame to be transferred from one node to another node 
 The canFrame object is a container for a frame to be transferred via canbus. Here frame can be two types remote and data frame but default frame would be a data frame but the type can be changed by the sending node. 
 Each message frame contains 
