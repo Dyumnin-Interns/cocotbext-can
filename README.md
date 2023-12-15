@@ -2,7 +2,7 @@
 
 ## Introduction 
 
-The CAN (Controller Area Network) protocol facilitates vehicle multi-node communication through dual-wire signaling (CANH, CANL).Messages with unique identifiers are broadcasted on the bus, allowing nodes to interpret and act upon relevant data. This message-based system enables efficient, real-time data exchange crucial for automotive functionalities and control.This document supports can 2.0b.
+The CAN (Controller Area Network) protocol facilitates vehicle multi-node communication through dual-wire signaling (CANH, CANL).Messages with unique identifiers are broadcasted on the bus, allowing nodes to interpret and act upon relevant data.This message-based system enables efficient,real-time data exchange crucial for automotive functionalities and control.This document supports can 2.0b.
 For the simulation of a can protocol 
 
 ## Installation
