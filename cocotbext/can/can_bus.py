@@ -125,7 +125,7 @@ class CanFrame:
 
 class Cansource(Reset):
 
-    def __init__(self, data, er, dv, clock, reset=None, enable=None,drive_stop =False,  reset_active_level=True, *args, **kwargs):#enable will be used to tell the source when to transfer
+    def __init__(self, data, er, dv, clock, drv_event,tx_frame, reset=None, enable=None,drive_stop =False,  reset_active_level=True, *args, **kwargs):#enable will be used to tell the source when to transfer
         self.log = logging.getLogger(f"cocotb.{data._path}")
         self.data = data
       #  self.er = er
@@ -133,7 +133,8 @@ class Cansource(Reset):
         self.clock = clock
         self.reset = reset
         self.enable = enable
-        
+        self.drv_event= Event()
+        self.drv_event = drv_event()
 
         self.log.info("Can source")
         self.log.info("cocotbext-can version %s", __version__)
@@ -296,6 +297,7 @@ class Cansource(Reset):
                     self.log.info("TX frame: %s", frame)
                     frame.normalize()
 
+
                     
                     self.active = True
                     frame_offset = 0
@@ -345,20 +347,22 @@ class Cansource(Reset):
 
 class Cansink(Reset):
 
-    def __init__(self, data, er, dv, clock,frame=None, reset=None, enable=None, mii_select=None, reset_active_level=True, *args, **kwargs):
+    def __init__ ( self, data, er, dv, clock, drv_event,frame_tx , frame=None, reset=None, enable=None, mii_select=None, reset_active_level=True, *args, **kwargs): 
         self.log = logging.getLogger(f"cocotb.{data._path}")
         self.data = data
         self.er = er
-        #self.dv = dv
+        #self.dv = dvvent
         #self.clock = clock
         self.reset = reset
       #  self.enable = enable
-       
+        self.drive_stop = Event()
+        self.drive_stop = drv_event
         self.send_frame=CanFrame(bytearray(), [])
         self.send_frame=frame
         self.log.info("Can Frame")
         self.log.info("cocotbext-can version %s", __version__)
-        
+        if (self.drive_event.set()):
+                self.transmit_frame = frame_tx 
 
         super().__init__(*args, **kwargs)
 
@@ -516,8 +520,8 @@ class Cansink(Reset):
         prev_bit =  0
         drve_count =  0 
         bit_count=0
-        if self.enable is not None:
-            enable_event = RisingEdge(self.enable)
+       # if self.enable is not None:
+        #    enable_event = RisingEdge(self.enable)
         recv = False    
         rtr_or_srr= False
         ide=False
@@ -528,8 +532,7 @@ class Cansink(Reset):
         drive_frame = CanFrame(bytearray(), []) 
         while True:
             await clock_edge_event
-            
-            
+    
             if (self.data.value.integer): # waiting for sof  
                 rtr_or_srr= False
                 ide=False
@@ -539,9 +542,11 @@ class Cansink(Reset):
                 recv = True
                 bit_count=0
                 end_of_frame= False
+            
+           
             while (recv):
                 #if self.enable is None or self.enable.value:   
-                    if not drive_stop:
+                    if self.drive_stop.set():
                         transmit_frame= self.frame_transmit
                     # for Acknolgement      
                     if not (ide):
@@ -575,7 +580,7 @@ class Cansink(Reset):
                         idle=0
                     if (idle==7):
                         recv=False
-                        self.stop_send.clear()
+                        self.drive_stop.clear()
                         
                     if drive_event:   
                         if(d_val==prev_bit):
@@ -585,8 +590,8 @@ class Cansink(Reset):
                         if drve_count == 5 :
                             drve_count=0
                         else:      
-                            if ( byte_index < len(transmit_frame.data)):
-                                current_byte = transmit_frame.data[byte_index]
+                            if ( byte_index < len(self.transmit_frame.data)):
+                                current_byte = self.transmit_frame.data[byte_index]
                                 # Compare each bit in the current byte
                                 for bit_shift in range(7, -1, -1):  # Iterate through each bit
                                         received_bit = d_val # d_val
@@ -596,7 +601,7 @@ class Cansink(Reset):
                                         arr_bit = (current_byte & mask) >> bit_shift
                                         if arr_bit != received_bit:
                                             # If any bit doesn't match, return False
-                                            self.stop_send().set()
+                                            self.drive_stop.set()
                                            # frame = CanFrame(bytearray(), [])
                                            # frame.data.extend(drive_frame.data)
                                             drive_frame= None
@@ -606,7 +611,7 @@ class Cansink(Reset):
                             if bit_index == 7:
                                 byte_index+=1
                                 bit_index =0
-                            if byte_index > len(transmit_frame.data):
+                            if byte_index > len(self.transmit_frame.data):
                                 byte_index=0
                     
                     
@@ -685,12 +690,14 @@ class Canbus:
         self.gtx_clk = gtx_clk
         self.tx_clk = tx_clk
         self.rx_clk = rx_clk
-        self.drv_on
-        super().__init__(*args, **kwargs)
+        self.drv_event = Event()
+        self.tx_frame= CanFrame(bytearray(), []) 
 
-        self.tx = Cansink(txd, tx_er, tx_en, tx_clk, reset, reset_active_level=reset_active_level)
+        super().__init__(*args, **kwargs)
         
-        self.rx = Cansource(rxd, rx_er, rx_dv, rx_clk, reset_active_level=reset_active_level)
+        self.tx = Cansink(txd, tx_er, tx_en, tx_clk,self.drv_event, self.tx_frame, reset, reset_active_level=reset_active_level)
+        
+        self.rx = Cansource(rxd, rx_er, rx_dv, rx_clk,self.drv_event,self.tx_frame, reset_active_level=reset_active_level)
         
         self.rx_clk.setimmediatevalue(0)
         
