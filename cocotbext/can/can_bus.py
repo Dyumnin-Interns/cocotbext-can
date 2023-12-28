@@ -15,7 +15,7 @@ from .reset import Reset
 class CanFrame:
     def __init__(self, data=None, error=None, tx_complete=None):
         self.data = bytearray()
-        self.error = None
+        #self.error = None
         self.sim_time_start = None
         self.sim_time_sfd = None
         self.sim_time_end = None
@@ -23,14 +23,14 @@ class CanFrame:
 
         if type(data) is CanFrame:
             self.data = bytearray(data.data)
-            self.error = data.error
+            #self.error = data.error
             self.sim_time_start = data.sim_time_start
             self.sim_time_sfd = data.sim_time_sfd
             self.sim_time_end = data.sim_time_end
             self.tx_complete = data.tx_complete
         else:
             self.data = bytearray(data)
-            self.error = error
+          #  self.error = error
          
         if tx_complete is not None:
             self.tx_complete = tx_complete
@@ -42,7 +42,7 @@ class CanFrame:
             payload.extend(bytearray(min_len-len(payload)))
         payload.extend(struct.pack('<L', zlib.crc32(payload)))
         return cls(payload, tx_complete=tx_complete)
-
+    
     @classmethod
     def from_raw_payload(cls,rtr, ide, payload,  tx_complete=None):
         ctrl= bytearray(len(payload))
@@ -64,17 +64,22 @@ class CanFrame:
           data.extend(payload)    
         return cls.from_payload(data, tx_complete=tx_complete)
 
-    def get_preamble_len(self):
-        return self.data.index(EthPre.SFD)+1
+   # def get_preamble_len(self):
+   #     return self.data.index(EthPre.SFD)+1
 
-    def get_preamble(self):
-        return self.data[0:self.get_preamble_len()]
+   # def get_preamble(self):
+   #     return self.data[0:self.get_preamble_len()]
 
     def get_payload(self, strip_fcs=True):
-        if ide:
-            return self.data[39:-15]
-        else:
-            return self.data[18:-15]
+            if self.data[1]& 1<<3: # check for ide bit 
+                if (self.data[4] & 1 ):# check for rtr bit 
+                     return 0    
+                           
+                return self.data[39:-15]
+            else:
+                if (self.data[1] & 1<< 4):
+                    return 0 
+                return self.data[18:-15]
 
     def get_fcs(self):
         return self.data[-4:]
@@ -90,9 +95,9 @@ class CanFrame:
         else:
             self.error = [0]*n
 
-    def compact(self):
-        if self.error is not None and not any(self.error):
-            self.error = None
+   # def compact(self):
+   #     if self.error is not None and not any(self.error):
+    #        self.error = None
 
     def handle_tx_complete(self):
         if isinstance(self.tx_complete, Event):
@@ -267,82 +272,89 @@ class Cansource(Reset):
             enable_event = RisingEdge(self.enable)
         
         while True:
-            await clock_edge_event
             
-            if  self.drive_stop :
-            # Drive stop event detected
-                if frame is not None:
-                    # Put the frame back in the queue
-                    self.queue.put_nowait(frame)
-                    self.queue_occupancy_bytes += len(frame)
-                    self.queue_occupancy_frames += 1
-                    frame = None
-                    self.current_frame = None
+            drive= False
+            if():
+                pass
+                byte_value= 0
+                byte_index= 0
+                drive=True
+            
+            while(drive):
+                if frame is None :
+                            frame.sim_time_sfd = get_sim_time()    
                 
-            if not self.drive_stop:
-                if ifg_cnt > 0:
-                    # in IFG
-                    ifg_cnt -= 1
-      
-                elif frame is None and not self.queue.empty():
-                    # send frame
-                    frame = self.queue.get_nowait()
-                    self.dequeue_event.set()
-                    self.queue_occupancy_bytes -= len(frame)
-                    self.queue_occupancy_frames -= 1
-                    self.current_frame = frame
-                    frame.sim_time_start = get_sim_time()
-                    frame.sim_time_sfd = None
-                    frame.sim_time_end = None
-                    self.log.info("TX frame: %s", frame)
-                    frame.normalize()
-
-
-                    
-                    self.active = True
-                    frame_offset = 0
-
-                if frame is not None:
-                    d = frame_data[frame_offset]
-                    if frame.sim_time_sfd is None and d in (EthPre.SFD, 0xD):
-                        frame.sim_time_sfd = get_sim_time()
-                    
-                    if (prev_bit==d):
-                        tx_count+=1
-                    else:
-                        tx_count=0
-                    if (tx_count==5):
-                        self.data.value=~prev_bit
-                        tx_count=0
-                    else:   
-                        self.data.value = d
-                        prev_bit= d 
-                    if self.er is not None:
-                        self.er.value = frame_error[frame_offset]
-                        
-                    self.dv.value = 1
-                    frame_offset += 1
-
-                    if frame_offset >= len(frame_data):
-                        ifg_cnt = max(self.ifg, 1)
-                        frame.sim_time_end = get_sim_time()
-                        frame.handle_tx_complete()
+                await clock_edge_event
+                
+                if  self.drive_stop :
+                # Drive stop event detected
+                    if frame is not None:
+                        # Put the frame back in the queue
+                        self.queue.put_nowait(frame)
+                        self.queue_occupancy_bytes += len(frame)
+                        self.queue_occupancy_frames += 1
                         frame = None
+                        
                         self.current_frame = None
-                else:
-                    self.data.value = 0
-                    if self.er is not None:
-                        self.er.value = 0
-                    self.dv.value = 0
-                    self.active = False
                     
-                    if ifg_cnt == 0 and self.queue.empty():
-                        self.idle_event.set()
-                        self.active_event.clear()
-                        await self.active_event.wait()
+                if not self.drive_stop:
+                    if ifg_cnt > 0:
+                        # in IFG
+                        ifg_cnt -= 1
+        
+                    elif frame is None and not self.queue.empty():
+                        # send frame
+                        frame = self.queue.get_nowait()
+                        self.dequeue_event.set()
+                        self.queue_occupancy_bytes -= len(frame)
+                        self.queue_occupancy_frames -= 1
+                        self.current_frame = frame
+                        frame.sim_time_start = get_sim_time()
+                        frame.sim_time_sfd = None
+                        frame.sim_time_end = None
+                        self.log.info("TX frame: %s", frame)
+                        frame.normalize()                        
+                        self.active = True
+                        frame_offset = 0
 
-            elif self.enable is not None and not self.enable.value:
-                await enable_event
+                    if frame is not None:
+                      #  d = frame_data[frame_offset]
+                        
+                        if (bit_position==8):
+                            byte_index +=1
+                         # Iterate through each bit in the byte
+                             # Each byte contains 8 bits
+                         # Extract the bit using bitwise AND with 1
+                        d = (frame.data[byte_index] >> bit_position) & 1  
+                                
+                        if (prev_bit==d):
+                                    tx_count+=1
+                        else:
+                                    tx_count=0
+                        if (tx_count==5):
+                                    self.data.value=~prev_bit
+                                    tx_count=0
+                        else:   
+                                    self.data.value = d
+                                    prev_bit= d       
+                        bit_position +=1
+
+                        if frame_offset >= len(frame_data):
+                                    ifg_cnt = max(self.ifg, 1)
+                                    frame.sim_time_end = get_sim_time()
+                                    frame.handle_tx_complete()
+                                    frame = None
+                                    bit_position=0
+                                    byte_index=0
+                                    self.current_frame = None
+                    else: 
+                        if ifg_cnt == 0 and self.queue.empty():
+                            self.idle_event.set()
+                            self.active_event.clear()
+                            await self.active_event.wait()
+
+                elif self.enable is not None and not self.enable.value:
+                    await enable_event
 
 
 class Cansink(Reset):
@@ -372,9 +384,10 @@ class Cansink(Reset):
         self.active_event = Event()
         self.stop_send = Event()
         self.drv = False
-        self.bit_stuf_error = Event()
+       
+        self.bit_stuff_error = Event()
         self.acknowledge_error = Event()
-
+        
          
 
         self.queue_occupancy_bytes = 0
@@ -462,15 +475,12 @@ class Cansink(Reset):
             my_event = Event("my_event")
             if (my_event): # check whether this event is set or not 
                 pass
-                
-        
             #3.  crc error
             if not (self.empty):
                 frame= self.queue.get()
                 if (frame.data[1]>>4 & 1):
                     if (frame.data[4]>>8 & 1):
                         # calcualte crc
-                        
                         pass
                     else:
                         pass 
@@ -478,14 +488,12 @@ class Cansink(Reset):
                     if (frame.data[1]>>3 & 1 ):
                         pass
                     else:
-                        pass
-                
-                
+                        pass   
             #4.  field form bit feild checks
                       
             #5.   bit stuffing
-            if (self.bit_stuff_event.set()):
-                # assert bit sstuffing is encountered 
+            if (self.bit_stuff_error.set()):
+                # assert bit stuffing is encountered 
             
               pass            
              
@@ -545,6 +553,7 @@ class Cansink(Reset):
             
            
             while (recv):
+                
                 #if self.enable is None or self.enable.value:   
                     if self.drive_stop.set():
                         transmit_frame= self.frame_transmit
@@ -572,8 +581,8 @@ class Cansink(Reset):
                     d_val = self.data.value.integer
                 # dv_val = self.dv.value.integer
                 # er_val = 0 if self.er is None else self.er.value.integer
-                
-                  #maintian  the recovery from arbitration
+
+                  #maintian  the recovery from arbitration 
                     if (self.data.value.integer==1):
                         ide+=1
                     else:
@@ -613,10 +622,7 @@ class Cansink(Reset):
                                 bit_index =0
                             if byte_index > len(self.transmit_frame.data):
                                 byte_index=0
-                    
-                    
-                        
-                        
+                         
                     else:      
                         if frame is None:
                         # if dv_val:
@@ -653,7 +659,7 @@ class Cansink(Reset):
                             if(count==5):
                                count=0
                             if(prev_bit==d_val):
-                                set.bit_stuf_error.set()
+                                self.bit_stuff_error.set()
                         
                             else:
                                 frame.data.append(d_val)
@@ -683,36 +689,40 @@ class Cansink(Reset):
 
 
 class Canbus:
-    def __init__(self, txd, tx_er, tx_en, tx_clk, gtx_clk, rxd, rx_er, rx_dv, rx_clk,
-            reset=None, reset_active_level=True, speed=1000e6, *args, **kwargs):
+    def __init__(self, Can_h, Can_l, reset=None, reset_active_level=True, speed=1000e6, *args, **kwargs):
          #canl ,canh,
          
         self.gtx_clk = gtx_clk
-        self.tx_clk = tx_clk
-        self.rx_clk = rx_clk
+        self.can_l = Can_l
+        self.can_l = rx_clk
         self.drv_event = Event()
         self.tx_frame= CanFrame(bytearray(), []) 
 
         super().__init__(*args, **kwargs)
         
-        self.tx = Cansink(txd, tx_er, tx_en, tx_clk,self.drv_event, self.tx_frame, reset, reset_active_level=reset_active_level)
+        self.tx = Cansink(Can_l , tx_clk,self.drv_event, self.tx_frame, reset, reset_active_level=reset_active_level)
         
-        self.rx = Cansource(rxd, rx_er, rx_dv, rx_clk,self.drv_event,self.tx_frame, reset_active_level=reset_active_level)
+        self.rx = Cansource(Can_l, rx_clk,self.drv_event,self.tx_frame, reset_active_level=reset_active_level)
         
         self.rx_clk.setimmediatevalue(0)
         
         self._clock_cr = None
         self.set_speed(speed)
         self.error_count=0
-        self.error_=cocotb.start_soon(self.error_manager())
+        self.error_=cocotb.start_soon(self.error_manager(Can_l, Can_h ))
+        self.can_l = cocotb.start_soon(self.drive_can_h(Can_l, Can_h))
         # phase error self.
     
+    async def drive_can_h(self, can_h, can_l):
+        pass
+        can_h.value.integer = ~ (can_l.value.integer)
     
-    def error_manager(self):
+     
+    async def error_manager(self , can_l ,can_h):
         line_error=0
         
         while True:
-            if(canl==canh):
+            if(can_h==can_l):
                 line_error+=1
                 self.error_event.set()
             
